@@ -22,21 +22,28 @@ import org.javacord.api.interaction.SlashCommand;
 import org.javacord.api.interaction.SlashCommandOption;
 import org.javacord.api.interaction.SlashCommandOptionType;
 
+import java.awt.*;
 import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.util.Arrays;
+import java.util.Collections;
 
 public class Bot {
     private final String token;
+    private final Color primaryEmbedColor;
+    private final Color successEmbedColor;
+    private final Color dangerEmbedColor;
     private final long claimChannelId;
     private final long checkChannelId;
 
     private DiscordApi api;
     private final Connection connection;
 
-    public Bot(String token, long claimChannelId, long checkChannelId, Connection conn) {
+    public Bot(String token, Color primaryEmbedColor, Color successEmbedColor, Color dangerEmbedColor, long claimChannelId, long checkChannelId, Connection conn) {
         this.token = token;
+
+        this.primaryEmbedColor = primaryEmbedColor;
+        this.successEmbedColor = successEmbedColor;
+        this.dangerEmbedColor = dangerEmbedColor;
+
         this.claimChannelId = claimChannelId;
         this.checkChannelId = checkChannelId;
         this.connection = conn;
@@ -50,6 +57,17 @@ public class Bot {
         return connection;
     }
 
+    public Color getPrimaryEmbedColor() {
+        return primaryEmbedColor;
+    }
+
+    public Color getSuccessEmbedColor() {
+        return successEmbedColor;
+    }
+
+    public Color getDangerEmbedColor() {
+        return dangerEmbedColor;
+    }
     public long getClaimChannelId() {
         return claimChannelId;
     }
@@ -69,9 +87,9 @@ public class Bot {
         // Create slash command (may take a few minutes to update on Discord)
         SlashCommand.with("ping", "Pings the bot.").createGlobal(api).join();
         SlashCommand.with("claim", "Claim a case.",
-                Arrays.asList(
+                Collections.singletonList(
                         SlashCommandOption.create(SlashCommandOptionType.STRING, "case_num", "Case #", true)
-        )).createGlobal(api).join();
+                )).createGlobal(api).join();
 
         SlashCommand.with("createuser", "Creates a user.")
                 .setDefaultEnabledForPermissions(PermissionType.DEAFEN_MEMBERS)

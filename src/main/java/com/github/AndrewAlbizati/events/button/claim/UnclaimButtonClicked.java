@@ -1,6 +1,7 @@
 package com.github.AndrewAlbizati.events.button.claim;
 
 import com.github.AndrewAlbizati.Bot;
+import com.github.AndrewAlbizati.exceptions.claim.ActiveClaimNotFoundException;
 import com.github.AndrewAlbizati.models.ActiveClaim;
 import org.javacord.api.entity.message.MessageFlag;
 import org.javacord.api.event.interaction.ButtonClickEvent;
@@ -19,13 +20,13 @@ public class UnclaimButtonClicked implements ButtonClickListener {
             return;
         }
 
-        // Remove from ActiveClaims table
-        ActiveClaim c = ActiveClaim.fromId(bot.getConnection(), buttonEvent.getButtonInteraction().getMessage().getId());
-
         // Remove activeclaim from the database
         try {
+            ActiveClaim c = ActiveClaim.fromId(bot.getConnection(), buttonEvent.getButtonInteraction().getMessage().getId())
+                    .orElseThrow(() -> new ActiveClaimNotFoundException("ActiveClaim not found, please check the message ID"));
+
             c.removeFromDatabase(bot.getConnection());
-        } catch (SQLException e) {
+        } catch (SQLException | ActiveClaimNotFoundException e) {
             e.printStackTrace();
             buttonEvent.getInteraction().createImmediateResponder()
                     .setContent("There was an error, please try again.")

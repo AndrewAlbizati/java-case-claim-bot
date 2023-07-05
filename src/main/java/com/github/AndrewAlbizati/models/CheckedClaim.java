@@ -1,11 +1,11 @@
 package com.github.AndrewAlbizati.models;
 
 import com.github.AndrewAlbizati.enums.Status;
-import com.github.AndrewAlbizati.exceptions.CheckerMessageNotFoundException;
 import com.github.AndrewAlbizati.exceptions.InvalidCaseNumberException;
-import com.github.AndrewAlbizati.exceptions.PingThreadNotFoundException;
+import com.github.AndrewAlbizati.exceptions.UserNotFoundException;
 
 import java.sql.*;
+import java.util.Optional;
 
 public record CheckedClaim(long checkerMessageId,
                            String caseNum,
@@ -19,15 +19,19 @@ public record CheckedClaim(long checkerMessageId,
 ) implements Claim {
     public CheckedClaim {
         if (caseNum.length() != 8) {
-            throw new InvalidCaseNumberException();
+            try {
+                Integer.parseInt(caseNum);
+            } catch (NumberFormatException e) {
+                throw new InvalidCaseNumberException();
+            }
         }
     }
 
     public CheckedClaim(Connection conn, long checkerMessageId, String caseNum, long techId, long leadId, Timestamp claimTime, Timestamp completeTime, Timestamp checkTime, Status status, Long pingThreadId) {
-        this(checkerMessageId, caseNum, User.fromId(conn, techId), User.fromId(conn, leadId), claimTime, completeTime, checkTime, status, pingThreadId);
+        this(checkerMessageId, caseNum, User.fromId(conn, techId).orElseThrow(() -> new UserNotFoundException()), User.fromId(conn, leadId).orElseThrow(() -> new UserNotFoundException()), claimTime, completeTime, checkTime, status, pingThreadId);
     }
 
-    public static CheckedClaim fromPingThreadId(Connection conn, long id) throws PingThreadNotFoundException {
+    public static Optional<CheckedClaim> fromPingThreadId(Connection conn, long id) {
         try {
             String sql = "SELECT * FROM CheckedClaims WHERE ping_thread_id=? LIMIT 1";
 
@@ -37,7 +41,7 @@ public record CheckedClaim(long checkerMessageId,
             ResultSet resultSet = preparedStmt.executeQuery();
 
             resultSet.next();
-            return new CheckedClaim(
+            return Optional.of(new CheckedClaim(
                     conn,
                     resultSet.getLong(1),
                     resultSet.getString(2),
@@ -48,9 +52,9 @@ public record CheckedClaim(long checkerMessageId,
                     resultSet.getTimestamp(7),
                     Status.fromStr(resultSet.getString(8)),
                     resultSet.getLong(9) == 0 ? null : resultSet.getLong(9)
-            );
+            ));
         } catch (SQLException e) {
-            throw new CheckerMessageNotFoundException("Ping thread not found, check id sent");
+            return Optional.empty();
         }
     }
 

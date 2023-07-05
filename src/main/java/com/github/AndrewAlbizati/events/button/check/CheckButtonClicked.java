@@ -2,7 +2,7 @@ package com.github.AndrewAlbizati.events.button.check;
 
 import com.github.AndrewAlbizati.Bot;
 import com.github.AndrewAlbizati.enums.Status;
-import com.github.AndrewAlbizati.exceptions.CheckerMessageNotFoundException;
+import com.github.AndrewAlbizati.exceptions.claim.CompletedClaimNotFoundException;
 import com.github.AndrewAlbizati.models.CheckedClaim;
 import com.github.AndrewAlbizati.models.CompletedClaim;
 import org.javacord.api.entity.channel.TextChannel;
@@ -29,7 +29,8 @@ public class CheckButtonClicked implements ButtonClickListener {
         }
 
         try {
-            CompletedClaim completedClaim = CompletedClaim.fromId(bot.getConnection(), buttonEvent.getButtonInteraction().getMessage().getId());
+            CompletedClaim completedClaim = CompletedClaim.fromId(bot.getConnection(), buttonEvent.getButtonInteraction().getMessage().getId())
+                    .orElseThrow(() -> new CompletedClaimNotFoundException("Completed claim not found, please check the checker message ID sent"));
             CheckedClaim checkedClaim = new CheckedClaim(
                     bot.getConnection(),
                     completedClaim.checkerMessageId(),
@@ -52,7 +53,7 @@ public class CheckButtonClicked implements ButtonClickListener {
             m.delete();
 
             buttonEvent.getButtonInteraction().acknowledge();
-        } catch (CheckerMessageNotFoundException | SQLException | InterruptedException | ExecutionException e) {
+        } catch (CompletedClaimNotFoundException | SQLException | InterruptedException | ExecutionException e) {
             e.printStackTrace();
             buttonEvent.getInteraction().createImmediateResponder()
                     .setContent("Error!")

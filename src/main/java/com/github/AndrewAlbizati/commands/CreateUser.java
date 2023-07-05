@@ -10,7 +10,9 @@ import org.javacord.api.interaction.SlashCommandInteraction;
 import org.javacord.api.listener.interaction.SlashCommandCreateListener;
 
 import java.sql.Date;
+import java.sql.SQLException;
 import java.time.LocalDate;
+import java.util.List;
 
 public class CreateUser implements SlashCommandCreateListener {
     private final Bot bot;
@@ -40,25 +42,12 @@ public class CreateUser implements SlashCommandCreateListener {
                 return;
             }
 
-            String firstName = null;
-            String lastName = null;
-            String email = null;
-            String birthday = null;
+            List<String> inputs = submitEvent.getModalInteraction().getTextInputValues();
 
-            for (HighLevelComponent hlc : submitEvent.getModalInteraction().getComponents()) {
-                LowLevelComponent llc = hlc.asActionRow().get().getComponents().get(0); // Get 0 since each row has one field
-
-                switch (llc.asTextInput().get().getCustomId()) {
-                    case "firstname_input" -> firstName = llc.asTextInput().get().getValue();
-                    case "lastname_input" -> lastName = llc.asTextInput().get().getValue();
-                    case "email_input" -> email = llc.asTextInput().get().getValue();
-                    case "birthday_input" -> birthday = llc.asTextInput().get().getValue();
-                }
-            }
-
-            if (firstName == null || lastName == null || email == null || birthday == null) {
-                return;
-            }
+            String firstName = inputs.get(0);
+            String lastName = inputs.get(1);
+            String email = inputs.get(2);
+            String birthday = inputs.get(3);
 
             int month = Integer.parseInt(birthday.split("/")[0]);
             int day = Integer.parseInt(birthday.split("/")[1]);
@@ -75,9 +64,16 @@ public class CreateUser implements SlashCommandCreateListener {
                     PrivilegeLevel.TECH
             );
 
-            if (user.addToDatabase(bot.getConnection())) {
+            try {
+                user.addToDatabase(bot.getConnection());
                 submitEvent.getModalInteraction().createImmediateResponder()
                         .setContent("👍")
+                        .setFlags(MessageFlag.EPHEMERAL)
+                        .respond();
+            } catch (SQLException e) {
+                e.printStackTrace();
+                submitEvent.getModalInteraction().createImmediateResponder()
+                        .setContent("Error! Please try again.")
                         .setFlags(MessageFlag.EPHEMERAL)
                         .respond();
             }

@@ -1,9 +1,10 @@
 package com.github.AndrewAlbizati.models;
 
-import com.github.AndrewAlbizati.exceptions.CheckerMessageNotFoundException;
 import com.github.AndrewAlbizati.exceptions.InvalidCaseNumberException;
+import com.github.AndrewAlbizati.exceptions.UserNotFoundException;
 
 import java.sql.*;
+import java.util.Optional;
 
 public record CompletedClaim(long checkerMessageId,
                              String caseNum,
@@ -13,15 +14,19 @@ public record CompletedClaim(long checkerMessageId,
 ) implements Claim {
     public CompletedClaim {
         if (caseNum.length() != 8) {
-            throw new InvalidCaseNumberException();
+            try {
+                Integer.parseInt(caseNum);
+            } catch (NumberFormatException e) {
+                throw new InvalidCaseNumberException();
+            }
         }
     }
 
     public CompletedClaim(Connection conn, long claimMessageId, String caseNum, long techId, Timestamp claimTime, Timestamp completeTime) {
-        this(claimMessageId, caseNum, User.fromId(conn, techId), claimTime, completeTime);
+        this(claimMessageId, caseNum, User.fromId(conn, techId).orElseThrow(() -> new UserNotFoundException()), claimTime, completeTime);
     }
 
-    public static CompletedClaim fromId(Connection conn, long id) throws CheckerMessageNotFoundException {
+    public static Optional<CompletedClaim> fromId(Connection conn, long id) {
         try {
             String sql = "SELECT * FROM CompletedClaims WHERE checker_message_id=? LIMIT 1";
 
@@ -31,16 +36,16 @@ public record CompletedClaim(long checkerMessageId,
             ResultSet resultSet = preparedStmt.executeQuery();
 
             resultSet.next();
-            return new CompletedClaim(
+            return Optional.of(new CompletedClaim(
                     conn,
                     id,
                     resultSet.getString(2),
                     resultSet.getLong(3),
                     resultSet.getTimestamp(4),
                     resultSet.getTimestamp(5)
-            );
+            ));
         } catch (SQLException e) {
-            throw new CheckerMessageNotFoundException("Checker message not found, check id sent");
+            return Optional.empty();
         }
     }
 

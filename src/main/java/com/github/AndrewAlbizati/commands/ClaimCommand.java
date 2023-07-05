@@ -1,8 +1,9 @@
 package com.github.AndrewAlbizati.commands;
 
 import com.github.AndrewAlbizati.Bot;
-import com.github.AndrewAlbizati.exceptions.ClaimNotFoundException;
+import com.github.AndrewAlbizati.exceptions.claim.ClaimNotFoundException;
 import com.github.AndrewAlbizati.exceptions.InvalidCaseNumberException;
+import com.github.AndrewAlbizati.exceptions.claim.ActiveClaimNotFoundException;
 import com.github.AndrewAlbizati.models.ActiveClaim;
 import org.javacord.api.entity.message.Message;
 import org.javacord.api.entity.message.MessageFlag;
@@ -35,7 +36,7 @@ public class ClaimCommand implements SlashCommandCreateListener {
             return;
         }
 
-        String caseNum = interaction.getOptionByIndex(0).get().getStringValue().get();
+        String caseNum = interaction.getOptionByIndex(0).orElseThrow().getStringValue().orElseThrow();
 
         // Invalid case number
         if (caseNum.length() != 8) {
@@ -48,7 +49,8 @@ public class ClaimCommand implements SlashCommandCreateListener {
 
         // Test if case has already been claimed
         try {
-            ActiveClaim c = ActiveClaim.fromCaseNum(bot.getConnection(), caseNum);
+            ActiveClaim c = ActiveClaim.fromCaseNum(bot.getConnection(), caseNum)
+                    .orElseThrow(() -> new ActiveClaimNotFoundException("ActiveClaim not found, please check the case number"));
             interaction.createImmediateResponder()
                     .setContent("Case **" + c.caseNum() + "** has already been claimed by <@!" + c.tech().discordId() + ">.")
                     .setFlags(MessageFlag.EPHEMERAL)
@@ -64,10 +66,10 @@ public class ClaimCommand implements SlashCommandCreateListener {
 
         // Create embed
         EmbedBuilder eb = new EmbedBuilder()
-                .setTitle(caseNum)
                 .setDescription("Is being worked on by " + interaction.getUser().getMentionTag())
                 .setFooter("Claimed")
-                .setAuthor(interaction.getUser())
+                .setAuthor(caseNum, null, interaction.getUser().getAvatar().getUrl().toString())
+                .setColor(bot.getPrimaryEmbedColor())
                 .setTimestamp(Instant.now());
 
         // Send message

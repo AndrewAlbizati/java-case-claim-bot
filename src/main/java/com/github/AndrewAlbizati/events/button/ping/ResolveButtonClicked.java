@@ -1,6 +1,9 @@
 package com.github.AndrewAlbizati.events.button.ping;
 
 import com.github.AndrewAlbizati.Bot;
+import com.github.AndrewAlbizati.exceptions.claim.CheckedClaimNotFoundException;
+import org.javacord.api.entity.channel.ServerThreadChannel;
+import org.javacord.api.entity.message.MessageFlag;
 import org.javacord.api.entity.message.component.ActionRow;
 import org.javacord.api.entity.message.component.TextInput;
 import org.javacord.api.entity.message.component.TextInputStyle;
@@ -19,10 +22,18 @@ public class ResolveButtonClicked implements ButtonClickListener {
             return;
         }
 
-        long threadId = buttonEvent.getButtonInteraction().getMessage().getServerThreadChannel().get().getId();
+        try {
+            ServerThreadChannel stc = buttonEvent.getButtonInteraction().getMessage().getServerThreadChannel()
+                    .orElseThrow(() -> new CheckedClaimNotFoundException("CheckedClaim not found, please ensure that the button was clicked in a valid ServerThreadChannel"));
 
-        buttonEvent.getInteraction().respondWithModal("resolve-modal-" + threadId, "Resolve Ping",
-                ActionRow.of(TextInput.create(TextInputStyle.PARAGRAPH, "assessment", "Assessment (Optional)", false))
-        );
+            buttonEvent.getInteraction().respondWithModal("resolve-modal-" + stc.getId(), "Resolve Ping",
+                    ActionRow.of(TextInput.create(TextInputStyle.PARAGRAPH, "assessment", "Assessment (Optional)", false))
+            );
+        } catch (CheckedClaimNotFoundException e) {
+            buttonEvent.getInteraction().createImmediateResponder()
+                    .setContent("Error! Please try again.")
+                    .setFlags(MessageFlag.EPHEMERAL)
+                    .respond();
+        }
     }
 }

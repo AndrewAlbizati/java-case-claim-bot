@@ -6,9 +6,10 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Optional;
 
 public record Ping(long threadId, long messageId, String severity, String description) implements DatabaseItem {
-    public static Ping fromThreadId(Connection conn, long id) throws PingNotFoundException {
+    public static Optional<Ping> fromThreadId(Connection conn, long id) throws PingNotFoundException {
         try {
             String sql = "SELECT * FROM Pings WHERE thread_id=? LIMIT 1";
 
@@ -17,18 +18,18 @@ public record Ping(long threadId, long messageId, String severity, String descri
 
             ResultSet resultSet = preparedStmt.executeQuery();
             resultSet.next();
-            return new Ping(
+            return Optional.of(new Ping(
                     id,
                     resultSet.getLong(2),
                     resultSet.getString(3),
                     resultSet.getString(4)
-            );
+            ));
         } catch (SQLException e) {
-            throw new PingNotFoundException("Ping not found, check thread id sent");
+            return Optional.empty();
         }
     }
 
-    public static Ping fromMessageId(Connection conn, long id) throws PingNotFoundException {
+    public static Optional<Ping> fromMessageId(Connection conn, long id) throws PingNotFoundException {
         try {
             String sql = "SELECT * FROM Pings WHERE message_id=? LIMIT 1";
 
@@ -37,14 +38,14 @@ public record Ping(long threadId, long messageId, String severity, String descri
 
             ResultSet resultSet = preparedStmt.executeQuery();
             resultSet.next();
-            return new Ping(
+            return Optional.of(new Ping(
                     resultSet.getLong(1),
                     id,
                     resultSet.getString(3),
                     resultSet.getString(4)
-            );
+            ));
         } catch (SQLException e) {
-            throw new PingNotFoundException("Ping not found, check message id sent");
+            return Optional.empty();
         }
     }
 

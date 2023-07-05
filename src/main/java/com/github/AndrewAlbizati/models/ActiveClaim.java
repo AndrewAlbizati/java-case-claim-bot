@@ -1,9 +1,10 @@
 package com.github.AndrewAlbizati.models;
 
-import com.github.AndrewAlbizati.exceptions.ClaimNotFoundException;
 import com.github.AndrewAlbizati.exceptions.InvalidCaseNumberException;
+import com.github.AndrewAlbizati.exceptions.UserNotFoundException;
 
 import java.sql.*;
+import java.util.Optional;
 
 
 public record ActiveClaim(long claimMessageId,
@@ -13,15 +14,19 @@ public record ActiveClaim(long claimMessageId,
 ) implements Claim {
     public ActiveClaim {
         if (caseNum.length() != 8) {
-            throw new InvalidCaseNumberException();
+            try {
+                Integer.parseInt(caseNum);
+            } catch (NumberFormatException e) {
+                throw new InvalidCaseNumberException();
+            }
         }
     }
 
     public ActiveClaim(Connection conn, long claimMessageId, String caseNum, long techId, Timestamp claimTime) {
-        this(claimMessageId, caseNum, User.fromId(conn, techId), claimTime);
+        this(claimMessageId, caseNum, User.fromId(conn, techId).orElseThrow(() -> new UserNotFoundException()), claimTime);
     }
 
-    public static ActiveClaim fromId(Connection conn, long id) throws ClaimNotFoundException {
+    public static Optional<ActiveClaim> fromId(Connection conn, long id) {
         try {
             String sql = "SELECT * FROM ActiveClaims WHERE claim_message_id=? LIMIT 1";
 
@@ -30,19 +35,19 @@ public record ActiveClaim(long claimMessageId,
 
             ResultSet resultSet = preparedStmt.executeQuery();
             resultSet.next();
-            return new ActiveClaim(
+            return Optional.of(new ActiveClaim(
                     conn,
                     id,
                     resultSet.getString(2),
                     resultSet.getLong(3),
                     resultSet.getTimestamp(4)
-            );
+            ));
         } catch (SQLException e) {
-            throw new ClaimNotFoundException("Claim not found, check id sent");
+            return Optional.empty();
         }
     }
 
-    public static ActiveClaim fromCaseNum(Connection conn, String caseNum) throws ClaimNotFoundException {
+    public static Optional<ActiveClaim> fromCaseNum(Connection conn, String caseNum) {
         try {
             String sql = "SELECT * FROM ActiveClaims WHERE case_num=? LIMIT 1";
 
@@ -51,15 +56,15 @@ public record ActiveClaim(long claimMessageId,
 
             ResultSet resultSet = preparedStmt.executeQuery();
             resultSet.next();
-            return new ActiveClaim(
+            return Optional.of(new ActiveClaim(
                     conn,
                     resultSet.getLong(1),
                     caseNum,
                     resultSet.getLong(3),
                     resultSet.getTimestamp(4)
-            );
+            ));
         } catch (SQLException e) {
-            throw new ClaimNotFoundException("Claim not found, check caseNum sent");
+            return Optional.empty();
         }
     }
 

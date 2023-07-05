@@ -2,14 +2,13 @@ package com.github.AndrewAlbizati.events.modal;
 
 import com.github.AndrewAlbizati.Bot;
 import com.github.AndrewAlbizati.enums.Status;
+import com.github.AndrewAlbizati.exceptions.claim.CompletedClaimNotFoundException;
 import com.github.AndrewAlbizati.models.CheckedClaim;
 import com.github.AndrewAlbizati.models.CompletedClaim;
 import com.github.AndrewAlbizati.models.Ping;
 import org.javacord.api.entity.channel.ChannelType;
 import org.javacord.api.entity.channel.ServerTextChannel;
-import org.javacord.api.entity.channel.ServerThreadChannel;
 import org.javacord.api.entity.channel.ServerThreadChannelBuilder;
-import org.javacord.api.entity.message.Message;
 import org.javacord.api.entity.message.MessageFlag;
 import org.javacord.api.entity.message.component.ActionRow;
 import org.javacord.api.entity.message.component.Button;
@@ -37,8 +36,10 @@ public class PingModalSubmit implements ModalSubmitListener {
         try {
             // Find completedClaim
             long messageId = Long.parseLong(submitEvent.getModalInteraction().getCustomId().split("-")[2]);
-            CompletedClaim completedClaim = CompletedClaim.fromId(bot.getConnection(), messageId);
+            CompletedClaim completedClaim = CompletedClaim.fromId(bot.getConnection(), messageId)
+                    .orElseThrow(() -> new CompletedClaimNotFoundException("CompletedClaim not found, please check the message ID"));
 
+            // Collect inputs
             List<String> inputs = submitEvent.getModalInteraction().getTextInputValues();
             String severity = inputs.get(0);
             String description = inputs.get(1);
@@ -50,57 +51,70 @@ public class PingModalSubmit implements ModalSubmitListener {
                     .setDescription("<@!" + completedClaim.tech().discordId() + ">, this case has been pinged by <@!" + submitEvent.getModalInteraction().getUser().getId() + ">.")
                     .addField("Reason", description, false)
                     .addField("To Do", todo, false)
+                    .setColor(bot.getDangerEmbedColor())
                     .setFooter(severity + " severity level")
                     .setTimestamp(Instant.now());
 
             // Create thread
-            ServerTextChannel stc = bot.getApi().getServerTextChannelById(bot.getClaimChannelId()).get();
+            ServerTextChannel stc = bot.getApi().getServerTextChannelById(bot.getClaimChannelId())
+                    .orElseThrow();
             ServerThreadChannelBuilder stcb = new ServerThreadChannelBuilder(stc, ChannelType.SERVER_PRIVATE_THREAD, completedClaim.caseNum());
-            ServerThreadChannel thread = stcb.create().get();
+            stcb.create().whenCompleteAsync((thread, ex1) -> {
+                // Add members to thread
+                thread.addThreadMember(submitEvent.getModalInteraction().getUser().getId());
+                thread.addThreadMember(completedClaim.tech().discordId());
 
-            // Add members to thread
-            thread.addThreadMember(submitEvent.getModalInteraction().getUser().getId());
-            thread.addThreadMember(completedClaim.tech().discordId());
+                // Send message
+                thread.sendMessage(eb, ActionRow.of(
+                        Button.primary("resolve", "Resolve"))
+                ).whenCompleteAsync((msg, ex2) -> {
+                    // Create CheckedClaim object
+                    CheckedClaim checkedClaim = new CheckedClaim(
+                            bot.getConnection(),
+                            msg.getId(),
+                            completedClaim.caseNum(),
+                            completedClaim.tech().discordId(),
+                            submitEvent.getModalInteraction().getUser().getId(),
+                            completedClaim.claimTime(),
+                            completedClaim.completeTime(),
+                            Timestamp.from(Instant.now()),
+                            Status.PINGED,
+                            thread.getId()
+                    );
 
-            // Send message
-            Message message = thread.sendMessage(eb, ActionRow.of(
-                    Button.primary("resolve", "Resolve"))
-            ).get();
+                    // Create Ping object
+                    Ping ping = new Ping(
+                            thread.getId(),
+                            msg.getId(),
+                            severity,
+                            description
+                    );
 
+                    // Add Ping and CheckedClaim to DB, remove CompletedClaim from DB
+                    try {
+                        ping.addToDatabase(bot.getConnection());
+                        checkedClaim.addToDatabase(bot.getConnection());
+                        completedClaim.removeFromDatabase(bot.getConnection());
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
 
-            // Create CheckedClaim object
-            CheckedClaim checkedClaim = new CheckedClaim(
-                    bot.getConnection(),
-                    message.getId(),
-                    completedClaim.caseNum(),
-                    completedClaim.tech().discordId(),
-                    submitEvent.getModalInteraction().getUser().getId(),
-                    completedClaim.claimTime(),
-                    completedClaim.completeTime(),
-                    Timestamp.from(Instant.now()),
-                    Status.PINGED,
-                    thread.getId()
-            );
+                    // Create response, delete it
+                    submitEvent.getModalInteraction().createImmediateResponder()
+                            .setContent("👍")
+                            .setFlags(MessageFlag.EPHEMERAL)
+                            .respond().whenCompleteAsync((res, ex3) -> res.delete());
+                });
+            });
 
-            // Create Ping object
-            Ping ping = new Ping(
-                    thread.getId(),
-                    message.getId(),
-                    severity,
-                    description
-            );
+            // Delete checker message
+            try {
+                bot.getApi().getServerTextChannelById(bot.getCheckChannelId()).get().getMessageById(messageId).get().delete();
+            } catch (ExecutionException | InterruptedException e) {
+                e.printStackTrace();
+            }
 
-            // Add Ping and CheckedClaim to DB, remove CompletedClaim from DB
-            ping.addToDatabase(bot.getConnection());
-            checkedClaim.addToDatabase(bot.getConnection());
-            completedClaim.removeFromDatabase(bot.getConnection());
-
-            // Create response, delete it
-            submitEvent.getModalInteraction().createImmediateResponder()
-                    .setContent("👍")
-                    .setFlags(MessageFlag.EPHEMERAL)
-                    .respond().get().update().get().delete();
-        } catch (SQLException | InterruptedException | ExecutionException e) {
+        } catch (CompletedClaimNotFoundException e) {
             e.printStackTrace();
             submitEvent.getModalInteraction().createImmediateResponder()
                     .setContent("Error! Please try again.")
