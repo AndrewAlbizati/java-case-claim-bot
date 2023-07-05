@@ -1,5 +1,3 @@
-USE ITSCaseClaimTest;
-
 CREATE TABLE `CheckedClaims`(
     `checker_message_id` BIGINT UNSIGNED NOT NULL,
     `case_num` VARCHAR(8) NOT NULL,

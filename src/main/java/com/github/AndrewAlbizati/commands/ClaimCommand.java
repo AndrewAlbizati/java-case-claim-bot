@@ -5,6 +5,7 @@ import com.github.AndrewAlbizati.exceptions.claim.ClaimNotFoundException;
 import com.github.AndrewAlbizati.exceptions.InvalidCaseNumberException;
 import com.github.AndrewAlbizati.exceptions.claim.ActiveClaimNotFoundException;
 import com.github.AndrewAlbizati.models.ActiveClaim;
+import com.github.AndrewAlbizati.models.User;
 import org.javacord.api.entity.message.Message;
 import org.javacord.api.entity.message.MessageFlag;
 import org.javacord.api.entity.message.component.ActionRow;
@@ -18,6 +19,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 public class ClaimCommand implements SlashCommandCreateListener {
@@ -63,6 +65,15 @@ public class ClaimCommand implements SlashCommandCreateListener {
                     .respond();
             return;
         } catch (ClaimNotFoundException ignored) {}
+
+        Optional<User> u = User.fromId(bot.getConnection(), interaction.getUser().getId());
+        if (u.isEmpty()) {
+            interaction.createImmediateResponder()
+                    .setContent("Please use the /join command to get started.")
+                    .setFlags(MessageFlag.EPHEMERAL)
+                    .respond();
+            return;
+        }
 
         // Create embed
         EmbedBuilder eb = new EmbedBuilder()

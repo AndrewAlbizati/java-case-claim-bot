@@ -14,10 +14,10 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
 
-public class CreateUser implements SlashCommandCreateListener {
+public class JoinCommand implements SlashCommandCreateListener {
     private final Bot bot;
 
-    public CreateUser(Bot bot) {
+    public JoinCommand(Bot bot) {
         this.bot = bot;
     }
 
@@ -26,7 +26,7 @@ public class CreateUser implements SlashCommandCreateListener {
         SlashCommandInteraction interaction = event.getSlashCommandInteraction();
 
         // Ignore other slash commands
-        if (!interaction.getCommandName().equalsIgnoreCase("createuser")) {
+        if (!interaction.getCommandName().equalsIgnoreCase("join")) {
             return;
         }
 

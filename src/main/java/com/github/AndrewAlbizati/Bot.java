@@ -1,7 +1,7 @@
 package com.github.AndrewAlbizati;
 
 import com.github.AndrewAlbizati.commands.ClaimCommand;
-import com.github.AndrewAlbizati.commands.CreateUser;
+import com.github.AndrewAlbizati.commands.JoinCommand;
 import com.github.AndrewAlbizati.commands.PingCommand;
 import com.github.AndrewAlbizati.commands.admin.ActivateUser;
 import com.github.AndrewAlbizati.commands.admin.DeactivateUser;
@@ -91,7 +91,7 @@ public class Bot {
                         SlashCommandOption.create(SlashCommandOptionType.STRING, "case_num", "Case #", true)
                 )).createGlobal(api).join();
 
-        SlashCommand.with("createuser", "Creates a user.")
+        SlashCommand.with("join", "Creates a user.")
                 .setDefaultEnabledForPermissions(PermissionType.DEAFEN_MEMBERS)
                 .createGlobal(api)
                 .join();
@@ -105,7 +105,7 @@ public class Bot {
         // Create slash command listeners
         api.addSlashCommandCreateListener(new PingCommand(this));
         api.addSlashCommandCreateListener(new ClaimCommand(this));
-        api.addSlashCommandCreateListener(new CreateUser(this));
+        api.addSlashCommandCreateListener(new JoinCommand(this));
 
         api.addSlashCommandCreateListener(new ActivateUser(this));
         api.addSlashCommandCreateListener(new DeactivateUser(this));
